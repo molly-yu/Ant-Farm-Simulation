@@ -1,7 +1,6 @@
 import java.awt.*;
 import javax.swing.*;
 import java.awt.event.*;  // Needed for ActionListener
-import java.lang.Object;
 import javax.swing.event.*;  // Needed for ActionListener
 import java.io.*;
 import java.util.Scanner;
@@ -11,9 +10,14 @@ import java.awt.event.MouseEvent;
 import javax.sound.sampled.AudioInputStream; //imports for music (javax)
 import javax.sound.sampled.AudioSystem;
 import javax.sound.sampled.Clip;
+
 class AntFarm extends JFrame implements ActionListener, ChangeListener, MouseListener
 {
-    static Colony colony = new Colony();
+    /**
+	 * 
+	 */
+	private static final long serialVersionUID = 1L;
+	static Colony colony = new Colony();
     static JSlider speedSldr = new JSlider ();
     static Timer t;
     private static JComboBox actionBox, creatureBox; //static combo box declaration (their values needs to be accessed later)
@@ -22,19 +26,43 @@ class AntFarm extends JFrame implements ActionListener, ChangeListener, MouseLis
     public static Clip clip, clip2; //music clip variables
     static boolean click = true, clicked2 = false; //needs to be used inmultiple methods
     private static JButton muteBtn = new JButton ("Mute"); //needs to be used in multiple methods
+    static JComboBox fChooser;
+    static File fs[] = {new File("patterns/template ants150x100.txt"),new File("patterns/empty tunnel.txt")};
+    static JFileChooser fileChooser;
+    static JPanel content;
     
     //======================================================== constructor
     public AntFarm ()
     {
+    	
+    	//create filechooser
+    	fileChooser = new JFileChooser();
+   	 	fileChooser.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
+   	 	fileChooser.setCurrentDirectory(new File("patterns"));	//chooses file from file directory
+   	 
         // 1... Create/initialize components
         fileName.setPreferredSize(new Dimension(200,24)); //expands size of text field
-        JButton simulateBtn = new JButton ("Simulate");
+        JButton simulateBtn = new JButton ("Simulate");	
         simulateBtn.addActionListener (this);
+        JButton stopBtn = new JButton("Stop");
+        stopBtn.addActionListener(this);        
+        JButton createBtn = new JButton ("Create");
+        createBtn.addActionListener(this);
         JButton saveBtn = new JButton ("Save");
         saveBtn.addActionListener(this);
-        JButton loadBtn = new JButton ("Load");
-        loadBtn.addActionListener(this);
         muteBtn.addActionListener(this);
+        
+        //arraylist of files to choose from
+        ArrayList<String> textFiles = new ArrayList<String>();
+        textFiles.add("-"); // blank
+        
+        File dir = new File("patterns");
+        for (File file : dir.listFiles()) {
+          if (file.getName().endsWith((".txt"))) {
+            textFiles.add(file.getPath().substring("patterns".length()+1, file.getPath().length())); // add file to arraylist
+          }
+        }
+        fChooser = new JComboBox(textFiles.toArray()); // create new combobox with files as choices
         
         speedSldr.addChangeListener (this);
         
@@ -58,23 +86,27 @@ class AntFarm extends JFrame implements ActionListener, ChangeListener, MouseLis
         content.setLayout (new BorderLayout ()); // Use BorderLayout for panel
         JPanel north = new JPanel ();
         north.setLayout (new FlowLayout ()); // Use FlowLayout for input area
+       // JPanel side = new JPanel ();        // Create a side pane
+        //side.setLayout (new BorderLayout ()); // Use BorderLayout for panel
         
         DrawArea board = new DrawArea (600, 900);
         board.addMouseListener(this);
         
         // 3... Add the components to the input area.
-        
+        north.add (fChooser);
+        north.add(createBtn);
         north.add (simulateBtn); //adds buttons to GUI
         north.add (speedSldr);
+        north.add(stopBtn);
         north.add (actionBox);
+        
         north.add (creatureBox);
-        north.add (loadBtn);
         north.add(saveBtn);
-        north.add (fileName);
         north.add(muteBtn);
         
         content.add (north, "North"); // Input area
         content.add (board,BorderLayout.CENTER ); // Output area
+        //content.add(side, BorderLayout.EAST);
         
         // 4... Set this window's attributes.
         setContentPane (content);
@@ -127,24 +159,34 @@ class AntFarm extends JFrame implements ActionListener, ChangeListener, MouseLis
                 clicked2 = true;
             }
         }
+    	 if (e.getActionCommand ().equals ("Stop")) {
+    	//stops the simulation
+    	try {
+        	t.stop();
+    	}catch(Exception e1) {}
+    	 }
+    		
+    	
         if (e.getActionCommand ().equals  ("Save"))
         {
-            String name = fileName.getText(); //gets what user inputted into text field
-            fileName.setText(""); //clears text field
-            try {
-                colony.save(name); //calls save method and inputs user inputted name
-            }catch (IOException e1){} //error checking
-        }
-        if (e.getActionCommand ().equals  ("Load"))
-        {
-            JFileChooser fc = new JFileChooser(); //new file chooser
-            fc.showOpenDialog(AntFarm.this); //opens file choosing dialogue box
-            File file = fc.getSelectedFile(); //creates file object for the selected file
-            try {
-                colony.load(file); //calls load method and inputs user selected file
-            }catch (IOException e1){} //error checking
-        }
+        	try {
+            	t.stop();
+        	}catch(Exception e1) {}
+        	
+        	createFile();
         
+        
+        }
+      
+        if (e.getActionCommand ().equals ("Create"))	//creates a new template based on the choice 
+        {
+        	if(fChooser.getSelectedItem().equals("-")) {	//random
+        		colony = new Colony ();
+        	}else {											//loads from file
+        		colony = new Colony(new File("patterns"+"\\"+fChooser.getSelectedItem()));
+        	}
+        }
+        	
         if (e.getActionCommand ().equals  ("Mute") || e.getActionCommand ().equals  ("Unmute"))
         {
         	try {
@@ -280,6 +322,73 @@ class AntFarm extends JFrame implements ActionListener, ChangeListener, MouseLis
         repaint();
     }
     
+    private void createFile() {
+    	try {
+    	String s = (String)JOptionPane.showInputDialog(
+                content,
+                "File Saver"
+                + "Please enter a text name",
+                "Customized Dialog",
+                JOptionPane.PLAIN_MESSAGE,
+                null,
+                null,
+                "test");
+
+			//If a string was returned, say so.
+			if ((s == null) && (s.length() < 0)) {
+				s = "test";
+			}
+			
+    	try {
+    		//creates file
+  	      File file = new File("patterns/"+s+".txt");
+
+  	      if (file.createNewFile()){
+  	    	fChooser.addItem(s+".txt");
+  	      }
+  	      
+  	    BufferedWriter bw = null;
+		FileWriter fw = null;
+
+		try {	//writes into file
+
+			String content = colony.toString();
+			//initializes the writers
+			fw = new FileWriter(file);
+			bw = new BufferedWriter(fw);
+			bw.write(content);
+
+
+		} catch (IOException e) {
+
+			e.printStackTrace();
+
+		} finally {
+
+			try {
+				//closes the writers
+				if (bw != null)
+					bw.close();
+
+				if (fw != null)
+					fw.close();
+
+			} catch (IOException ex) {
+
+				ex.printStackTrace();
+
+			}
+
+		}
+
+      	} catch (IOException e) {
+  	      e.printStackTrace();
+      	}
+    	} catch(Exception e) {
+    		
+    	};
+    }
+    
     class DrawArea extends JPanel
     {
         public DrawArea (int width, int height)
@@ -386,7 +495,6 @@ class Colony
     private Ants grid[][];
     private char grid2[][];
     private FileReader reader;
-    private boolean load;
     public Colony () //create grid of Ants
     {
         grid = new Ants[100][150];
@@ -426,6 +534,21 @@ class Colony
                 }
             }
         }
+    }
+    public Colony(File f) { // constructor with a file as parameter - if a file was chosen to be loaded/created
+    	grid = new Ants[100][150];
+        grid2 = new char[100][150];
+    	grid2 = readFile(f);
+    	for (int row = 0; row < grid.length; row++) // initialize
+            for (int col = 0; col < grid[row].length; col++)
+                grid[row][col] = new Ants(row, col);
+    	
+    	for(int i = 0; i < 100; i++) {
+    		for(int j = 0; j < 150; j++) {
+    			grid[i][j].setChar(grid2[i][j]); // copy values from grid2 to grid
+    			
+    		}
+    	}
     }
     
     public Ants moveNext (int row, int col, char checkFor) //returns a grid around row and col entered that has the char checkFor
@@ -469,7 +592,34 @@ class Colony
         }
         else return grid[row][col]; //if no square around it found with checkFor char, return original row and col
     }
-    
+    public void overcrowd(int row, int col)
+    { // overcrowding, kill ants
+    	int count = 0;
+    	if(grid[row][col].CharAt()=='2'||grid[row][col].CharAt()=='3') {
+    		try {
+    	if(grid[row-1][col].CharAt()==grid[row][col].CharAt())
+    		count++;
+    	if(grid[row+1][col].CharAt()==grid[row][col].CharAt())
+    		count++;
+    	if(grid[row][col-1].CharAt()==grid[row][col].CharAt())
+    		count++;
+    	if(grid[row][col+1].CharAt()==grid[row][col].CharAt())
+    		count++;
+    	if(grid[row+1][col+1].CharAt()==grid[row][col].CharAt())
+    		count++;
+    	if(grid[row-1][col+1].CharAt()==grid[row][col].CharAt())
+    		count++;
+    	if(grid[row-1][col-1].CharAt()==grid[row][col].CharAt())
+    		count++;
+    	if(grid[row+1][col-1].CharAt()==grid[row][col].CharAt())
+    		count++;
+    		}catch(Exception e) {}
+    	}
+    	if(count>3) {		// if more than 3 live neighbours, kill
+    		grid[row][col].setChar('1');
+    		grid2[row][col] = '1';
+    	}
+    }
     public void live (int row, int col) //find a tunnel around square using moveNext and move there
     {
         Ants move = moveNext (row, col, '1');
@@ -561,12 +711,14 @@ class Colony
                     live (row, col);
                     autoeradicate (row, col, '3');
                     autopopulate (row, col, '2');
+                    overcrowd(row,col);
                 }
                 else if (grid[row][col].CharAt() == '3') // if red ant
                 {
                     live (row, col);
                     autoeradicate (row, col, '2');
                     autopopulate (row, col, '3');
+                    overcrowd(row,col);
                 }
                 else if(grid[row][col].CharAt()=='4') //if anteater tongue
                 {
@@ -1042,38 +1194,50 @@ class Colony
             spread.setChar('9');
     } 
     
-    //********************************************************************Save
-    public void save(String file) throws IOException
-    {
-    	String data=""; // initialize a string to add board information
-        for (int row=0;row<grid.length;row++) {
-            for (int col=0;col<grid[row].length;col++){  // go through board array and save values to string data
-                data+=grid[row][col].CharAt();
-        }
-            data+='\n';
-        }
-        String fileName = file+".txt" ;
-
-        FileWriter writer = new FileWriter( fileName ); // create new filewriter
-        writer.write(data);// write new txt file with information from board
-        writer.close(); // close filewriter
+    //********************************************************************Save into string
+    
+    public String toString() {
+    	String s = "";
+    	for(int i = 0; i < 100; i++) {
+    		for(int j = 0; j < 150; j++) {
+    			s+= grid[i][j].CharAt();
+    		}
+    		//creates new line
+    		s+="\n";
+    	}
+    	return s;
     }
-    //****************************************************************Load
-    public void load(File file)  throws IOException
-    {
-    	 try{
-    	        FileReader reader = new FileReader(file);
-    	        char str[] = new char [15000]; // create array of chars
-    	        reader.read(str); // read in chars from file
-    	        Ants data[][] = new Ants[100][150]; // create 2d array of Ants for the board
-    	        for (int row = 0; row < grid.length; row++) {
-    	            for (int col = 0; col < grid[row].length; col++) {   // go through 2d array and enter in char values
-    	                    grid2[row][col] = str[row*101+col];
-    	            }
-    	        }
-    	        grid = data;    // override previous board with new board
-    	    }
-    	    catch(Exception e){};
-    	    
+    //****************************************************************Load file
+    private char [][] readFile(File f) {
+    	char[][]arr =new char[100][150];
+    	//create arraylist of lines
+    	ArrayList<String> line = new ArrayList<String>();
+    	Scanner sn = null;
+		
+		try {
+			sn = new Scanner(f);
+		} catch (FileNotFoundException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+				
+    	while(sn!=null&&sn.hasNextLine()) {
+    		//add arraylist of lines
+    		line.add(sn.nextLine());
+    	}
+    	
+    	//find the dimensions of the image
+    	int length =line.get(0).length(); //length of file
+    	int width = line.size(); //width of file
+    	
+    	//creates a template based on the file
+    	for(int i = 0; i < grid.length; i++) {
+    		String l = line.get(i);//get line at index i;
+    		for(int j = 0; j < grid[i].length; j++){
+    			arr[i][j] = (l.charAt(j));
+    			
+    		}
+    	}   	
+    	return arr;
     }
 }
