@@ -1,4 +1,9 @@
 # ignore these class files
 *.ctxt
 *.bluej
+*.jar
 
+
+#logs and databases
+*.log
+*.sql
